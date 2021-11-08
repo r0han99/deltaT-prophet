@@ -83,10 +83,15 @@ def load_data(about=True):
 def load_provinces():
 
     # dcity = pd.read_csv("./data/unis-country.csv").drop('Unnamed: 0',axis=1)
+    india = pd.read_csv("./data/india.csv").drop('Unnamed: 0',axis=1)
+    us = pd.read_csv("./data/USA.csv").drop('Unnamed: 0',axis=1)
+    uk = pd.read_csv("./data/UK.csv").drop('Unnamed: 0',axis=1)
+
+    dcity = pd.concat([india,us,uk])
     unis = pd.read_csv("./data/unis.csv").drop('Unnamed: 0',axis=1)
 
-    # return dcity, unis
-    return unis
+    return dcity, unis
+    # return unis
 
 @st.cache(persist=True)
 def median_agg(data, sequence='Month',loc='Country',countryname=None,returnlists=False):
@@ -1096,9 +1101,9 @@ def cs_main():
 
      # data 
     data = load_data(about=False)
-    # dcity, unis = load_provinces()
+    dcity, unis = load_provinces()
 
-    unis = load_provinces()
+    # unis = load_provinces()
 
     
 
@@ -1113,7 +1118,7 @@ def cs_main():
         prophet_cs(data)
 
     elif menu_id == 'Traveller?':
-        traveller_cs(data, (data,unis))
+        traveller_cs(data, (dcity,unis))
 
 
 
