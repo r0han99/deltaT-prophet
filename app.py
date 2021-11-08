@@ -8,13 +8,14 @@ import numpy as np
 import os 
 import matplotlib.pyplot as plt
 import seaborn as sns
-import altair as alt
+from prophet import Prophet
 import plotly.graph_objects as go
 import plotly.io as pio
 from pathlib import Path
 import base64
 from iso3166 import countries as codes
 import hydralit_components as hc
+from streamlit import caching
 
 
 
@@ -65,26 +66,27 @@ def img_to_bytes(img_path):
 
 
 
-@st.cache(persist=True)
+@st.cache(persist=True, allow_output_mutation=True)
 def load_data(about=True):
 
     if not about:
-        dmajcity = pd.read_csv("../Data/AvgTempMajorCity.csv").drop('Unnamed: 0',axis=1)
+        dmajcity = pd.read_csv("./data/AvgTempMajorCity.csv").drop('Unnamed: 0',axis=1)
         
         return dmajcity
     else:
-        coords = pd.read_csv('../Data/choropleth-dat.csv').drop('Unnamed: 0',axis=1)
+        coords = pd.read_csv('./data/choropleth-dat.csv').drop('Unnamed: 0',axis=1)
         return coords
 
 
 
-@st.cache(persist=True)
+@st.cache(persist=True, allow_output_mutation=True)
 def load_provinces():
 
-    dcity = pd.read_csv("../Data/unis-country.csv").drop('Unnamed: 0',axis=1)
-    unis = pd.read_csv("../Data/unis.csv").drop('Unnamed: 0',axis=1)
+    # dcity = pd.read_csv("./data/unis-country.csv").drop('Unnamed: 0',axis=1)
+    unis = pd.read_csv("./data/unis.csv").drop('Unnamed: 0',axis=1)
 
-    return dcity, unis
+    # return dcity, unis
+    return unis
 
 @st.cache(persist=True)
 def median_agg(data, sequence='Month',loc='Country',countryname=None,returnlists=False):
@@ -259,8 +261,6 @@ def summary_markdown(city, data, diff, dcity, country):
 
 
     
-
-  
 
 
 
@@ -502,8 +502,10 @@ def about_cs():
 
 def traveller_cs(data, mig):
 
-    info = {"Migrating": 'Migration: for students who are moving out of their home country for education & For people starting their professional endeavours in abroad.',
-            "Visiting": "Visiting: for people who are travelling to a Country and its major cities."}
+    # info = {"Migrating": 'Migration: for students who are moving out of their home country for education & For people starting their professional endeavours in abroad.',
+    #         "Visiting": "Visiting: for people who are travelling to a Country and its major cities."}
+    info = {"Migrating": 'Migration: for students who are moving out of their home country for education & For people starting their professional endeavours in abroad.',}
+            
 
     # instantiation
     hcity, mcity = None, None
@@ -662,7 +664,9 @@ def traveller_cs(data, mig):
                     summary_markdown(mcity, awaydata, diff, dcity, mcountry)
                     
                 st.markdown('***')
-                st.markdown("<center><b><i>Notable Differences</i></b></center>",unsafe_allow_html=True)
+                
+
+
 
 
 
@@ -794,8 +798,6 @@ def analytics_cs(data):
 
 
             
-            
-
 
         st.markdown("<span id='quantified-summary'></span>",unsafe_allow_html=True)
         st.markdown(f'<h1 style="font-family:{fontname0}; text-decoration:underline; font-size:37px; text-align:center;"  >Quantified Summary</h1>', unsafe_allow_html=True)
@@ -808,6 +810,259 @@ def analytics_cs(data):
 
         # Dont Delete -- Redirection
         st.markdown(f'<a href="#top"><span style="font-family: {fontname0}; color:darkblue; font-size:15px; padding-left:1090px; ">Jump to top of page</span></a>',unsafe_allow_html=True)
+
+
+@st.cache(persist=True)
+def prophetize(dmajcity, province):
+    
+    df = dmajcity[dmajcity['City']==province]
+    
+    
+    # initialise model
+    model = Prophet(yearly_seasonality=True)
+    
+    dt_prophet = df[['dt','AverageTemperature']]
+    dt_prophet.columns = ['ds','y']
+    
+    # fit model
+    model.fit(dt_prophet)
+    
+    future_dates=model.make_future_dataframe(periods=2920)
+    prediction=model.predict(future_dates)
+    pred_df = prediction
+    pred_df['year'] = pred_df['ds'].dt.year
+    pred_df['day'] = pred_df['ds'].dt.day
+    pred_df['month'] = pred_df['ds'].dt.strftime("%b")
+    
+    # prune dates
+    pred_df = pred_df[pred_df['year']>2013]
+    pred_df = pred_df[pred_df['day']==1]
+    pred_df = pred_df.drop('day',axis=1)
+    
+    return pred_df
+
+
+
+def project_yhat(data,city,year,mode='compound'):
+    
+    
+    # read data
+    
+    hydorg = pd.read_excel('./data/HydAvg18-20Org.xlsx')
+    tororg = pd.read_excel('./data/TorontoAvg18-20Org.xlsx')
+
+    if mode == 'compound':
+        data = data[(data['year']>=2018)&(data['year']<2021)]
+        prompt = 'Prophet Forecast for Average Temperatures in {}'
+        if city == 'Hyderabad':
+            original = hydorg['Average']
+        else:
+            original = tororg['Avg.Temp']
+    elif mode == 'individual':
+        data = data[data['year']==year]
+        prompt = 'Prophet Forecast for Average Temperatures in {}, {}'
+        
+        if city == 'Hyderabad':
+            original = hydorg[hydorg['year ']==year]['Average']
+        else:
+            original = tororg[tororg['year ']==year]['Avg.Temp']
+
+    
+    
+    x = data['ds']
+    y0 = data.yhat
+    y1 = data.yhat_lower
+    y2 = data.yhat_upper
+
+    
+
+    # Create traces
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=x, y=y0,
+                        mode='lines+markers',
+                        name='yhat', line=dict(color='crimson')))
+    fig.add_trace(go.Scatter(x=x, y=original,
+                        mode='lines+markers',
+                        name='original', line=dict(color='dodgerblue')))
+    fig.add_trace(go.Scatter(x=x, y=y1,
+                        name='yhat_lower', line=dict(color='green', width=2,
+                              dash='dash')))
+    fig.add_trace(go.Scatter(x=x, y=y2,
+
+                        name='yhat_upper', line=dict(color='orange', width=2,
+                              dash='dot')))
+
+    fig.update_traces(marker=dict(
+                              line=dict(width=2,
+                                        color='DarkSlateGrey')),
+                  selector=dict(mode='markers'))
+
+    fig.update_layout(
+        title=prompt.format(city,year),
+        title_x=0.5,
+        xaxis_title="Months",
+        yaxis_title="Average Temperature",
+        legend_title="Legend",)
+
+    return fig
+
+
+@st.cache(persist=True)
+def gen_seasonal_dfs(dmajcity,city):
+    
+    datapackage = {}
+    seasondfs = []
+    
+    # slice by CITY
+    data = dmajcity[dmajcity['City']==city]
+    
+    # get seasons 
+    seasons = data['Seasons'].unique()
+    datapackage['Seasons'] = seasons 
+    
+    # hemisphere 
+    datapackage['Hemisphere'] = data['Hemisphere'].unique()[0]
+    
+    for season in seasons:
+        seasondfs.append(data[data['Seasons']==season])
+        
+    datapackage['dfs'] = seasondfs
+    
+    return datapackage
+
+
+
+
+
+def seasonality_prophet(dflist,seasons):
+    models = {}
+    for df in dflist:
+        season = df['Seasons'].unique()[0]
+
+        # initialise model
+        print(f'{season.upper()}')
+        
+        model = Prophet(yearly_seasonality=True)
+        
+        dt_prophet = df[['dt','AverageTemperature']]
+        dt_prophet.columns = ['ds','y']
+        
+        # fit
+        model.fit(dt_prophet)
+        
+        # caching
+        models[season] = model
+        models[season+'-months'] = df['Month'].unique()
+        
+    return models
+
+@st.cache(allow_output_mutation=True,suppress_st_warning=True) 
+def quantify_future_seasonality(year, model_dict,seasons):
+    
+    quantified = {}
+    
+    
+    season_models = model_dict
+    future_dates=season_models['Winter'].make_future_dataframe(periods=2920)
+    
+    # my_bar = st.progress(0)
+
+
+    for season in seasons:
+        prediction=season_models[season].predict(future_dates)
+        df = prediction
+        df['year'] = df['ds'].dt.year
+        df['day'] = df['ds'].dt.day
+        df['month'] = df['ds'].dt.strftime("%b")
+
+        # prune dates
+        df = df[df['year']>2013]
+        df = df[df['day']==1]
+        df = df.drop('day',axis=1)
+        df = df[df['month'].isin(season_models[f'{season}-months'])]
+    
+        quantified[season] = df[df['year']==year]
+        # my_bar.progress(season)
+    
+    
+    return quantified
+
+
+
+
+
+def prophet_cs(dmajcity):
+
+   
+
+    mode = st.selectbox('Modes',['TimeSeries-Prophet', 'Seasonal-Prophet'],key='prophet-Modes')
+
+    st.markdown(f'<h1 style="font-family:{fontname0}; text-decoration:underline; font-size:37px; text-align:center;">{mode}<br></h1>', unsafe_allow_html=True)
+
+    # Coverting dt to datetime obj
+    dmajcity['dt'] = pd.to_datetime(dmajcity['dt'])
+
+    if mode == 'TimeSeries-Prophet':
+        cities = ['Hyderabad','Toronto']
+    
+        cols = st.columns(2)
+        city = cols[1].selectbox('City',cities,key='casestudy')
+        cols[0].markdown(f'<h1 style="font-family:{fontname0}; text-decoration:underline; font-size:30px; text-align:center;"><br>{city}<br></h1>', unsafe_allow_html=True)
+            
+        pred_df = prophetize(dmajcity, province=city)
+
+        fig = project_yhat(pred_df,city=city,year=2020,mode='compound')
+
+        st.plotly_chart(fig,use_container_width=True)
+
+        year = st.slider('Year', min_value=2018,max_value=2020, key='yearslider')
+
+        fig = project_yhat(pred_df,city=city,year=year,mode='individual')
+        st.plotly_chart(fig,use_container_width=True)
+
+    else:
+
+        countries = list(dmajcity['Country'].unique())
+        countries.insert(0, 'Select Country')
+
+        cols = st.columns([3,2])
+        
+        country = cols[0].selectbox('Country',countries, key='select-country')
+
+        if not country == 'Select Country':
+            cities = dmajcity[dmajcity['Country']==country]['City'].unique()
+        
+            with cols[1].form(key='season'):
+
+                city = st.selectbox('City', cities, key='season-sets')
+        
+                submit_button = st.form_submit_button(label='Forecast 🌡️')
+            
+            
+
+            if submit_button:
+                datapackage = gen_seasonal_dfs(dmajcity, city)
+                season_models = seasonality_prophet(datapackage['dfs'], datapackage['Seasons'])
+                quantified = quantify_future_seasonality(2020, model_dict=season_models, seasons=datapackage['Seasons'])
+
+
+
+                cols = st.columns(len(quantified.keys()))
+
+
+                st.markdown('***')
+                
+                for i, (key, value) in enumerate(zip(quantified.keys(),quantified.values()),0):
+
+                        season = key 
+                        value = value['yhat'].mean()
+                        
+                        cols[i].metric(label=season, value=str("%.2f" % value)+' °C',delta_color='inverse')
+
+                # caching.clear_cache()
+
+
+
 
 
 
@@ -841,8 +1096,9 @@ def cs_main():
 
      # data 
     data = load_data(about=False)
-    dcity, unis = load_provinces()
+    # dcity, unis = load_provinces()
 
+    unis = load_provinces()
 
     
 
@@ -853,8 +1109,11 @@ def cs_main():
     elif menu_id == 'About':
         about_cs()
 
+    elif menu_id == 'Prophet':
+        prophet_cs(data)
+
     elif menu_id == 'Traveller?':
-        traveller_cs(data, (dcity,unis))
+        traveller_cs(data, (data,unis))
 
 
 
