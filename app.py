@@ -853,8 +853,8 @@ def project_yhat(data,city,year,mode='compound'):
     
     # read data
     
-    hydorg = pd.read_excel('./data/HydAvg18-20Org.xlsx')
-    tororg = pd.read_excel('./data/TorontoAvg18-20Org.xlsx')
+    hydorg = pd.read_csv('./data/HydAvg18-20Org.csv').drop('Unnamed: 0',axis=1)
+    tororg = pd.read_csv('./data/TorontoAvg18-20Org.csv').drop('Unnamed: 0',axis=1)
 
     if mode == 'compound':
         data = data[(data['year']>=2018)&(data['year']<2021)]
