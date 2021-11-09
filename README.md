@@ -6,6 +6,4 @@ _Abstract: Forecasting the Long-term global warming rate is significant in a var
 
 
 
-
-
-
+Application -- [link](https://share.streamlit.io/r0han99/temperature-prophet/main/app.py)
