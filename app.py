@@ -1009,7 +1009,7 @@ def prophet_cs(dmajcity):
     dmajcity['dt'] = pd.to_datetime(dmajcity['dt'])
 
     if mode == 'TimeSeries-Prophet':
-        cities = ['Hyderabad','Toronto']
+        cities = ['Toronto','Hyderabad']
     
         cols = st.columns(2)
         city = cols[1].selectbox('City',cities,key='casestudy')
