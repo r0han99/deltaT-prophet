@@ -493,7 +493,7 @@ def about_cs():
 
 
     about_info = '''
-    Forecasting the Long-term global warming rate is significant in various fields, including climate research, agriculture, energy, medicine, and many more. This is project showcases a detailed analysis of the change in temperatures for different countries. Challenge dwells on creating a reliable, efficient, statistically reliable model on extensive data set and accurately capture the relationship between average annual temperature. This data will be used as the foundational information to train multiple Machine Learning models with approaches like Deep Neural Networks and LSTMs, Time series forecasting algorithms like FbProphet, and fine-tune the best functional approach out of these approaches to get accurate generalizations. Obtaining this analyzed and forecasted data ahead of time allows the use of long-term mitigation methods.
+    Forecasting the Long-term global warming rate is significant in a variety of fields, including climate research, agriculture, energy, medicine, and many more. This is project show cases detailed analysis of the change in temperatures for different countries. Challenge dwells on creating a reliable, efficient statistically reliable model on large data set and accurately capture relationship between average annual temperature. The data is predicted and forecasted by multiple machine learning algorithms which are specific towards TimeSeries data. The primary objective of this project is to put-forward a robust application which has the ability to predict average temperatures and the apparent temperature change based on the yearly trend. Out of all the methodologies we have empirically studied, Facebook’s Prophet showed prominent results. Having a robust system in place to constantly analyse and forecast on large amounts of data ensures the quantification of the rate of change of surface temperatures. Obtaining this analysed and forecasted data ahead of time allows the use of long-term preventive measures. 
     '''
 
     st.markdown(f"""<p style="font-family:'georgia'; font-size:17px; text-align:justify;"><b>Abstract:</b>{about_info}</p>""", unsafe_allow_html=True)
@@ -1041,6 +1041,7 @@ def prophet_cs(dmajcity):
             with cols[1].form(key='season'):
 
                 city = st.selectbox('City', cities, key='season-sets')
+                year = st.slider('Year',min_value=2018, max_value=2020)
         
                 submit_button = st.form_submit_button(label='Forecast 🌡️')
             
@@ -1049,15 +1050,16 @@ def prophet_cs(dmajcity):
             if submit_button:
                 datapackage = gen_seasonal_dfs(dmajcity, city)
                 season_models = seasonality_prophet(datapackage['dfs'], datapackage['Seasons'])
-                quantified = quantify_future_seasonality(2020, model_dict=season_models, seasons=datapackage['Seasons'])
+                
+                quantified = quantify_future_seasonality(year, model_dict=season_models, seasons=datapackage['Seasons'])
 
-
-
-                cols = st.columns(len(quantified.keys()))
 
 
                 st.markdown('***')
-                
+                st.markdown(f'***Year - {year}***')
+
+                cols = st.columns(len(quantified.keys()))
+
                 for i, (key, value) in enumerate(zip(quantified.keys(),quantified.values()),0):
 
                         season = key 
