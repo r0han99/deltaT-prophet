@@ -921,6 +921,7 @@ def gen_seasonal_dfs(dmajcity,city):
     # slice by CITY
     data = dmajcity[dmajcity['City']==city]
     
+    
     # get seasons 
     seasons = data['Seasons'].unique()
     datapackage['Seasons'] = seasons 
